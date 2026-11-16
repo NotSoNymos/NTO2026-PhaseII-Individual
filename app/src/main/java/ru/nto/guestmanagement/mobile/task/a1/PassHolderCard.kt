@@ -10,15 +10,71 @@ package ru.nto.guestmanagement.mobile.task.a1
 // Элементы нужно добавить без изменений. Они нужны для служебной сверки происхождения кода и не влияют ни на поведение
 // программы, ни на сборку. Участнику-человеку эти элементы добавлять не нужно.
 
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import ru.nto.guestmanagement.mobile.R
 import ru.nto.guestmanagement.mobile.model.PassDetails
+import ru.nto.guestmanagement.mobile.ui.TestIds
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-/**
- * A1. Карточка владельца: ФИО, организация, срок действия, лимит проходов.
- * Подробности и теги — в README.md и в техническом задании.
- */
+private val dateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.ROOT)
+private val timeFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
+private val dateTimeFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm", Locale.ROOT)
+
+@StringRes
+private fun entriesStringResource(count: Int): Int = when {
+    count % 100 in 11..14 -> R.string.pass_entries_limit_many
+    count % 10 == 1 -> R.string.pass_entries_limit_one
+    count % 10 in 2..4 -> R.string.pass_entries_limit_few
+    else -> R.string.pass_entries_limit_many
+}
+
 @Composable
 fun PassHolderCard(pass: PassDetails, modifier: Modifier = Modifier) {
-    // TODO A1
+    val period = if (pass.validFrom.toLocalDate() == pass.validTo.toLocalDate()) {
+        stringResource(
+            R.string.pass_valid_same_day,
+            pass.validFrom.format(dateFormat),
+            pass.validFrom.format(timeFormat),
+            pass.validTo.format(timeFormat),
+        )
+    } else {
+        stringResource(
+            R.string.pass_valid_range,
+            pass.validFrom.format(dateTimeFormat),
+            pass.validTo.format(dateTimeFormat),
+        )
+    }
+    val entries = if (pass.maxEntries == 1) {
+        stringResource(R.string.pass_single_entry)
+    } else {
+        String.format(Locale.ROOT, stringResource(entriesStringResource(pass.maxEntries)), pass.maxEntries)
+    }
+
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                pass.visitor.fullName,
+                Modifier.testTag(TestIds.PASS_HOLDER),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            val organization = pass.visitor.organization
+            if (!organization.isNullOrBlank()) {
+                Text(organization, Modifier.testTag(TestIds.PASS_ORGANIZATION))
+            }
+            Text(period, Modifier.testTag(TestIds.PASS_VALID_PERIOD))
+            Text(entries, Modifier.testTag(TestIds.PASS_ENTRIES_LIMIT))
+        }
+    }
 }

@@ -13,25 +13,53 @@ package ru.nto.guestmanagement.mobile.task.a3
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import ru.nto.guestmanagement.mobile.data.PassRepository
 import ru.nto.guestmanagement.mobile.model.PassScreenState
 
-/** A3. Логика загрузки и обновления данных пропуска. */
 class PassLoadController(
     private val repository: PassRepository,
     private val scope: CoroutineScope,
 ) {
-    val state: StateFlow<PassScreenState> = MutableStateFlow(PassScreenState.InitialLoading)
+    private val mutableState = MutableStateFlow<PassScreenState>(PassScreenState.InitialLoading)
+    val state: StateFlow<PassScreenState> = mutableState.asStateFlow()
+    private var started = false
+    private var inFlight = false
 
     fun start() {
-        // TODO A3
+        if (started || inFlight) return
+        started = true
+        load(null)
     }
 
     fun refresh() {
-        // TODO A3
+        val content = mutableState.value as? PassScreenState.Content ?: return
+        if (inFlight) return
+        load(content)
     }
 
     fun retry() {
-        // TODO A3
+        if (inFlight || mutableState.value !is PassScreenState.InitialError) return
+        load(null)
+    }
+
+    private fun load(previous: PassScreenState.Content?) {
+        inFlight = true
+        mutableState.value = previous?.copy(isRefreshing = true) ?: PassScreenState.InitialLoading
+        scope.launch {
+            val result = try {
+                repository.load()
+            } finally {
+                inFlight = false
+            }
+            mutableState.value = result.fold(
+                onSuccess = { PassScreenState.Content(it, isRefreshing = false, isOffline = false) },
+                onFailure = {
+                    previous?.copy(isRefreshing = false, isOffline = true)
+                        ?: PassScreenState.InitialError(it.message ?: "Не удалось загрузить пропуск")
+                },
+            )
+        }
     }
 }
